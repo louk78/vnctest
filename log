@@ -2,14 +2,20 @@ sn24@gnx589 /home/sn24/bordel/qemu-snapshot-2008-10-01_05                       
 {server mode lp=15901}
 connected !!
 
+1) handshaking phase
+------------------------------------------------------
+-ProtocolVersion (3.3, 3.7, 3.8)
 {  12 524642203030332e3030370a}
 >RFB 003.007
 
+-ProtocolVersion
 {  12 524642203030332e3030370a}
 <RFB 003.007
 
+-Security U8 nb; U8 types[nb]
 {   2 0102}
 >..
+-Security type chosen U8 type
 {   1 02}
 <.
 {  16 7e926122eb5ebf064cc55a94c59f4c0a}
@@ -17,12 +23,20 @@ connected !!
 
 {  16 2ec1cab263ab4f413be83780fe11b4f8}
 <....c.OA;.7.....
+-SecurityResult
 {   4 00000000}
 >....
+3) initialisation phase
+------------------------------------------------------
+-ClientInit U8 shared_flag;
 {   1 00}
 <.
+-ServerInit U16 w,h; PIXEL_FORMAT fmt; U32 name_len; U8 name[name_len];
+-PIXEL_FORMAT : U8 bpp,depth,big,truecol; U16 rmax,gmax,bmax; U8 rshift,gshift,bshift; U8 padding[3];
 {  39 0014001408080000000000000000ffffff0000000000000f676e783538393a312028736e323429}
 >........................gnx589:1 (sn24)
+3) normal protocol interaction
+------------------------------------------------------
 {  20 0000000008080000000000000000ffffff000000}
 <....................
 {  32 02000007ffffff11ffffff210000001000000001000000050000000200000000}
