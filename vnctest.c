@@ -119,12 +119,14 @@ typedef struct {
 } pointerev_t;
 #pragma pack()
 
+unsigned char screen[BPP / 8 * W * H];
+
 int FrameBufferUpdate( int fd, int bpp, int xpos, int ypos, int width, int height)
 {
 	fbupdate_t fbupdate;
 	rec_t rec;
 
-	printf( "%s: %d %d:%d %dx%d\n", __func__, bpp, xpos, ypos, width, height);
+//	printf( "%s: %d %d:%d %dx%d\n", __func__, bpp, xpos, ypos, width, height);
 	int n;
 	int len;
 	fbupdate.type = scFramebufferUpdate;
@@ -134,7 +136,6 @@ int FrameBufferUpdate( int fd, int bpp, int xpos, int ypos, int width, int heigh
 	if (n <= 0)
 		return -1;
 	int num;
-	int i;
 	rec.xpos = BE16(xpos);
 	rec.ypos = BE16(ypos);
 	rec.width = BE16(width);
@@ -145,6 +146,7 @@ int FrameBufferUpdate( int fd, int bpp, int xpos, int ypos, int width, int heigh
 	if (n <= 0)
 		return -1;
 	num = width * height * bpp / 8;
+	int i;
 	for (i = 0; i < num; i++)
 	{
 		uint8_t pixel;
@@ -303,7 +305,7 @@ int main()
 				case csFramebufferUpdateRequest:
 				{
 					fbupdatereq_t fbupdatereq;
-					printf( "reading framebufferupdaterequest event..\n");
+//					printf( "reading framebufferupdaterequest event..\n");
 					len = sizeof( fbupdatereq);
 					n = read( cs, &fbupdatereq, len);
 					if (n <= 0)
@@ -311,14 +313,13 @@ int main()
 						end = 1;
 						break;
 					}
-					printf( "read returned %d\n", n);
+//					printf( "read returned %d\n", n);
 					int x, y, w, h;
 					x = HE16(fbupdatereq.xpos);
 					y = HE16(fbupdatereq.ypos);
 					w = HE16(fbupdatereq.width);
 					h = HE16(fbupdatereq.height);
-					printf( "framebufferupdaterequest event : incr=%d xpos=%" PRId16 " ypos=%" PRId16 " width=%" PRId16 " height=%" PRId16 "\n",
-						fbupdatereq.incr, x, y, w, h);
+//					printf( "framebufferupdaterequest event : incr=%d xpos=%" PRId16 " ypos=%" PRId16 " width=%" PRId16 " height=%" PRId16 "\n", fbupdatereq.incr, x, y, w, h);
 					
 					if (FrameBufferUpdate( cs, pixfmt.bpp, x, y, w, h) < 0)
 					{
