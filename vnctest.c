@@ -17,8 +17,8 @@
 #define PORT 5901
 //#define PORT 0
 
-#define W 4
-#define H 4
+#define W 20
+#define H 10
 #define BPP 8
 #define DEPTH 8
 #define BIG 0
@@ -32,8 +32,9 @@
 
 #define BE32(v) ((uint32_t)htonl( v))
 #define BE16(v) ((uint16_t)htons( v))
-#define LE32(v) ((uint32_t)ntohl( v))
-#define LE16(v) ((uint16_t)ntohs( v))
+
+#define HE32(v) ((uint32_t)ntohl( v))
+#define HE16(v) ((uint16_t)ntohs( v))
 
 enum { SEC_INVALID, SEC_NONE, SEC_VNC };
 
@@ -67,40 +68,40 @@ typedef struct {
 	int32_t type;
 } rec_t;
 typedef struct {
-			uint8_t bpp, depth, big, truecol;
-			uint16_t rmax, gmax, bmax;
-			uint8_t rshift, gshift, bshift;
-			uint8_t padding[3];
+	uint8_t bpp, depth, big, truecol;
+	uint16_t rmax, gmax, bmax;
+	uint8_t rshift, gshift, bshift;
+	uint8_t padding[3];
 } pixel_format_t;
 typedef struct {
-			uint16_t w, h;
-			pixel_format_t fmt;
-			uint32_t name_len;
+	uint16_t w, h;
+	pixel_format_t fmt;
+	uint32_t name_len;
 } ServerInit_t;
 typedef struct {
-						uint8_t padding0[1];
-						uint16_t nenc;
+	uint8_t padding0[1];
+	uint16_t nenc;
 } encodings_t;
 typedef struct {
-						uint8_t incr;
-						uint16_t xpos;
-						uint16_t ypos;
-						uint16_t width;
-						uint16_t height;
+	uint8_t incr;
+	uint16_t xpos;
+	uint16_t ypos;
+	uint16_t width;
+	uint16_t height;
 } fbupdatereq_t;
 typedef struct {
-						uint8_t padding0[3];
-						uint8_t bpp;
-						uint8_t depth;
-						uint8_t big;
-						uint8_t truecol;
-						uint16_t rmax;
-						uint16_t gmax;
-						uint16_t bmax;
-						uint8_t rshift;
-						uint8_t gshift;
-						uint8_t bshift;
-						uint8_t padding1[3];
+	uint8_t padding0[3];
+	uint8_t bpp;
+	uint8_t depth;
+	uint8_t big;
+	uint8_t truecol;
+	uint16_t rmax;
+	uint16_t gmax;
+	uint16_t bmax;
+	uint8_t rshift;
+	uint8_t gshift;
+	uint8_t bshift;
+	uint8_t padding1[3];
 } pixfmt_t;
 typedef struct {
 	uint8_t down;
@@ -146,8 +147,8 @@ int FrameBufferUpdate( int fd, int bpp, int xpos, int ypos, int width, int heigh
 	num = width * height * bpp / 8;
 	for (i = 0; i < num; i++)
 	{
-		uint8_t pixel;
-		pixel = 0x55;
+		static uint8_t pixel = 0x01;
+		pixel++;
 		n = write( fd, &pixel, sizeof( pixel));
 		if (n <= 0)
 			return -1;
@@ -290,18 +291,18 @@ int main()
 		{
 			int type;
 
-			printf( "reading type..\n");
+//			printf( "reading type..\n");
 			n = read( cs, buf, 1);
 			if (n <= 0)
 				break;
-			printf( "read returned %d\n", n);
+//			printf( "read returned %d\n", n);
 			type = buf[0];
 			switch (type)
 			{
 				case csFramebufferUpdateRequest:
 				{
 					fbupdatereq_t fbupdatereq;
-					printf( "reading framebufferupdaterequest event..\n");
+//					printf( "reading framebufferupdaterequest event..\n");
 					len = sizeof( fbupdatereq);
 					n = read( cs, &fbupdatereq, len);
 					if (n <= 0)
@@ -309,10 +310,16 @@ int main()
 						end = 1;
 						break;
 					}
-					printf( "read returned %d\n", n);
-					printf( "framebufferupdaterequest event : incr=%d xpos=%" PRId16 " ypos=%" PRId16 " width=%" PRId16 " height=%" PRId16 "\n", fbupdatereq.incr, LE16(fbupdatereq.xpos), LE16(fbupdatereq.ypos), LE16(fbupdatereq.width), LE16(fbupdatereq.height));
+//					printf( "read returned %d\n", n);
+					int x, y, w, h;
+					x = HE16(fbupdatereq.xpos);
+					y = HE16(fbupdatereq.ypos);
+					w = HE16(fbupdatereq.width);
+					h = HE16(fbupdatereq.height);
+					printf( "framebufferupdaterequest event : incr=%d xpos=%" PRId16 " ypos=%" PRId16 " width=%" PRId16 " height=%" PRId16 "\n",
+						fbupdatereq.incr, x, y, w, h);
 					
-					if (FrameBufferUpdate( cs, bpp, 0, 0, w, h) < 0)
+					if (FrameBufferUpdate( cs, bpp, x, y, w, h) < 0)
 					{
 						end = 1;
 						break;
@@ -331,10 +338,10 @@ int main()
 						break;
 					}
 //					printf( "read returned %d\n", n);
-					printf( "setencodings event : nenc=%d\n", LE16(encodings.nenc));
+					printf( "setencodings event : nenc=%d\n", HE16(encodings.nenc));
 					printf( "encodings :");
 					int i;
-					for (i = 0; i < LE16(encodings.nenc); i++)
+					for (i = 0; i < HE16(encodings.nenc); i++)
 					{
 						int32_t type;
 						len = sizeof( type);
@@ -345,7 +352,7 @@ int main()
 							break;
 						}
 //						printf( "read returned %d\n", n);
-						printf( " %" PRId32, LE32(type));
+						printf( " %" PRId32, HE32(type));
 					}
 					printf( "\n");
 				}
@@ -359,7 +366,7 @@ int main()
 					if (n <= 0)
 						end = 1;
 					printf( "read returned %d\n", n);
-					printf( "setpixelformat event : bpp=%d depth=%d big=%d truecol=%d rmax=%" PRIx16 " gmax=%" PRIx16 " bmax=%" PRIx16 " rshift=%d gshift=%d bshift=%d\n", pixfmt.bpp, pixfmt.depth, pixfmt.big, pixfmt.truecol, LE16(pixfmt.rmax), LE16(pixfmt.gmax), LE16(pixfmt.bmax), pixfmt.rshift, pixfmt.gshift, pixfmt.bshift);
+					printf( "setpixelformat event : bpp=%d depth=%d big=%d truecol=%d rmax=%" PRIx16 " gmax=%" PRIx16 " bmax=%" PRIx16 " rshift=%d gshift=%d bshift=%d\n", pixfmt.bpp, pixfmt.depth, pixfmt.big, pixfmt.truecol, HE16(pixfmt.rmax), HE16(pixfmt.gmax), HE16(pixfmt.bmax), pixfmt.rshift, pixfmt.gshift, pixfmt.bshift);
 				}
 					break;
 				case csPointerEvent:
@@ -371,7 +378,7 @@ int main()
 					if (n <= 0)
 						end = 1;
 //					printf( "read returned %d\n", n);
-//					printf( "pointer event : bmask=%d xpos=%" PRId16 "ypos=%" PRId16 "\n", pointer.bmask, LE16(pointer.xpos), LE16(pointer.ypos));
+//					printf( "pointer event : bmask=%d xpos=%" PRId16 "ypos=%" PRId16 "\n", pointer.bmask, HE16(pointer.xpos), HE16(pointer.ypos));
 				}
 					break;
 				case csKeyEvent:
@@ -383,7 +390,7 @@ int main()
 					if (n <= 0)
 						end = 1;
 //					printf( "read returned %d\n", n);
-					printf( "key event : down=%d key=%" PRIx32 "\n", key.down, LE32(key.key));
+					printf( "key event : down=%d key=%" PRIx32 "\n", key.down, HE32(key.key));
 				}
 					break;
 				case csClientCutText:
@@ -395,13 +402,13 @@ int main()
 					if (n <= 0)
 						end = 1;
 //					printf( "read returned %d\n", n);
-					len = LE32(cut.len);
+					len = HE32(cut.len);
 					printf( "cut event : len=%" PRId32 "\n", len);
 					n = read( cs, buf, len);
 					if (n <= 0)
 						end = 1;
 //					printf( "read returned %d\n", n);
-					printf( "cut event : len=%" PRId32 "\n", LE32(cut.len));
+					printf( "cut event : len=%" PRId32 "\n", HE32(cut.len));
 				}
 					break;
 				default:
