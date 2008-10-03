@@ -165,8 +165,10 @@ int FrameBufferUpdate( int fd, int bpp, int xpos, int ypos, int width, int heigh
 		{
 			uint32_t pixel;
 			
-//			pixel = screen[(ypos + j) * W + (xpos + i)];
-			pixel = 0x55;
+			pixel = !!screen[(ypos + j) * W + (xpos + i)] * 0xFF;
+//			pixel <<= 16; // R
+//			pixel <<= 8; // G
+			pixel <<= 0; // B
 			printf( " %x", pixel);
 			n = write( fd, &pixel, sizeof( pixel));
 			if (n <= 0)
@@ -180,6 +182,7 @@ int FrameBufferUpdate( int fd, int bpp, int xpos, int ypos, int width, int heigh
 
 int main()
 {
+//	memset( &screen, 0, sizeof( screen));
 	printf( "hello vnctest\n");
 	
 	struct sockaddr_in sa;
