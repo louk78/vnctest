@@ -147,8 +147,8 @@ int FrameBufferUpdate( int fd, int bpp, int xpos, int ypos, int width, int heigh
 	num = width * height * bpp / 8;
 	for (i = 0; i < num; i++)
 	{
-		static uint8_t pixel = 0x01;
-		pixel++;
+		uint8_t pixel;
+		pixel = 0x01 + i;
 		n = write( fd, &pixel, sizeof( pixel));
 		if (n <= 0)
 			return -1;
@@ -289,6 +289,7 @@ int main()
 		int end = 0;
 		while (!end)
 		{
+			pixfmt_t pixfmt;
 			int type;
 
 //			printf( "reading type..\n");
@@ -302,7 +303,7 @@ int main()
 				case csFramebufferUpdateRequest:
 				{
 					fbupdatereq_t fbupdatereq;
-//					printf( "reading framebufferupdaterequest event..\n");
+					printf( "reading framebufferupdaterequest event..\n");
 					len = sizeof( fbupdatereq);
 					n = read( cs, &fbupdatereq, len);
 					if (n <= 0)
@@ -310,7 +311,7 @@ int main()
 						end = 1;
 						break;
 					}
-//					printf( "read returned %d\n", n);
+					printf( "read returned %d\n", n);
 					int x, y, w, h;
 					x = HE16(fbupdatereq.xpos);
 					y = HE16(fbupdatereq.ypos);
@@ -319,7 +320,7 @@ int main()
 					printf( "framebufferupdaterequest event : incr=%d xpos=%" PRId16 " ypos=%" PRId16 " width=%" PRId16 " height=%" PRId16 "\n",
 						fbupdatereq.incr, x, y, w, h);
 					
-					if (FrameBufferUpdate( cs, bpp, x, y, w, h) < 0)
+					if (FrameBufferUpdate( cs, pixfmt.bpp, x, y, w, h) < 0)
 					{
 						end = 1;
 						break;
@@ -359,14 +360,14 @@ int main()
 					break;
 				case csSetPixelFormat:
 				{
-					pixfmt_t pixfmt;
 					printf( "reading setpixelformat event..\n");
 					len = sizeof( pixfmt);
 					n = read( cs, &pixfmt, len);
 					if (n <= 0)
 						end = 1;
 					printf( "read returned %d\n", n);
-					printf( "setpixelformat event : bpp=%d depth=%d big=%d truecol=%d rmax=%" PRIx16 " gmax=%" PRIx16 " bmax=%" PRIx16 " rshift=%d gshift=%d bshift=%d\n", pixfmt.bpp, pixfmt.depth, pixfmt.big, pixfmt.truecol, HE16(pixfmt.rmax), HE16(pixfmt.gmax), HE16(pixfmt.bmax), pixfmt.rshift, pixfmt.gshift, pixfmt.bshift);
+					printf( "setpixelformat event : bpp=%d depth=%d big=%d truecol=%d rmax=%" PRIx16 " gmax=%" PRIx16 " bmax=%" PRIx16 " rshift=%d gshift=%d bshift=%d\n",
+						pixfmt.bpp, pixfmt.depth, pixfmt.big, pixfmt.truecol, HE16(pixfmt.rmax), HE16(pixfmt.gmax), HE16(pixfmt.bmax), pixfmt.rshift, pixfmt.gshift, pixfmt.bshift);
 				}
 					break;
 				case csPointerEvent:
