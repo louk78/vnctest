@@ -17,8 +17,8 @@
 #define PORT 5901
 //#define PORT 0
 
-#define W 20
-#define H 20
+#define W 4
+#define H 4
 #define BPP 8
 #define DEPTH 8
 #define BIG 0
@@ -70,21 +70,22 @@ int FrameBufferUpdate( int fd, int bpp, int xpos, int ypos, int width, int heigh
 	} rec;
 #pragma pack()
 
+	printf( "%s: %d %d:%d %dx%d\n", __func__, bpp, xpos, ypos, width, height);
 	int n;
 	int len;
 	fbupdate.type = scFramebufferUpdate;
-	fbupdate.nrec = 1;
+	fbupdate.nrec = BE16(1);
 	len = sizeof( fbupdate);
 	n = write( fd, &fbupdate, len);
 	if (n <= 0)
 		return -1;
 	int num;
 	int i;
-	rec.xpos = xpos;
-	rec.ypos = ypos;
-	rec.width = width;
-	rec.height = height;
-	rec.type = 0;
+	rec.xpos = BE16(xpos);
+	rec.ypos = BE16(ypos);
+	rec.width = BE16(width);
+	rec.height = BE16(height);
+	rec.type = BE16(0);
 	len = sizeof( rec);
 	n = write( fd, &rec, len);
 	if (n <= 0)
@@ -209,6 +210,7 @@ int main()
 		n = read( cs, buf, len);
 		printf( "read ClientInit [%02x]\n", buf[0]);
 
+#pragma pack(1)
 		typedef struct {
 			uint8_t bpp, depth, big, truecol;
 			uint16_t rmax, gmax, bmax;
@@ -220,13 +222,14 @@ int main()
 			pixel_format_t fmt;
 			uint32_t name_len;
 		} ServerInit;
+#pragma pack()
 		printf( "writing ServerInit..\n");
 		len = sizeof( ServerInit);
 		memset( &ServerInit, 0, len);
 		snprintf( buf, sizeof( buf), "hello vnc");
 		int len2 = strlen( buf);
 		ServerInit.w = BE16(w);
-		ServerInit.w = BE16(h);
+		ServerInit.h = BE16(h);
 		ServerInit.fmt.bpp = bpp;
 		ServerInit.fmt.depth = depth;
 		ServerInit.fmt.big = big;
@@ -372,7 +375,7 @@ int main()
 		}
 		printf( "client left.\n");
 		close( cs);
-		break;
+//		break;
 	}
 	printf( "closing server..\n");
 	close( s);
