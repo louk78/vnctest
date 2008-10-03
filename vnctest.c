@@ -53,22 +53,75 @@ enum {
 	scServerCutText
 } sercli_t;
 
+#pragma pack(1)
+typedef struct {
+	uint8_t type;
+	uint8_t padding0[1];
+	uint16_t nrec;
+} fbupdate_t;
+typedef struct {
+	uint16_t xpos;
+	uint16_t ypos;
+	uint16_t width;
+	uint16_t height;
+	int32_t type;
+} rec_t;
+typedef struct {
+			uint8_t bpp, depth, big, truecol;
+			uint16_t rmax, gmax, bmax;
+			uint8_t rshift, gshift, bshift;
+			uint8_t padding[3];
+} pixel_format_t;
+typedef struct {
+			uint16_t w, h;
+			pixel_format_t fmt;
+			uint32_t name_len;
+} ServerInit_t;
+typedef struct {
+						uint8_t padding0[1];
+						uint16_t nenc;
+} encodings_t;
+typedef struct {
+						uint8_t incr;
+						uint16_t xpos;
+						uint16_t ypos;
+						uint16_t width;
+						uint16_t height;
+} fbupdatereq_t;
+typedef struct {
+						uint8_t padding0[3];
+						uint8_t bpp;
+						uint8_t depth;
+						uint8_t big;
+						uint8_t truecol;
+						uint16_t rmax;
+						uint16_t gmax;
+						uint16_t bmax;
+						uint8_t rshift;
+						uint8_t gshift;
+						uint8_t bshift;
+						uint8_t padding1[3];
+} pixfmt_t;
+typedef struct {
+	uint8_t down;
+	uint8_t padding[2];
+	uint32_t key;
+} keyev_t;
+typedef struct {
+	uint8_t padding[3];
+	uint32_t len;
+} ccuttext_t;
+typedef struct {
+	uint8_t bmask;
+	uint16_t xpos;
+	uint16_t ypos;
+} pointerev_t;
+#pragma pack()
+
 int FrameBufferUpdate( int fd, int bpp, int xpos, int ypos, int width, int height)
 {
-#pragma pack(1)
-	struct {
-		uint8_t type;
-		uint8_t padding0[1];
-		uint16_t nrec;
-	} fbupdate;
-	struct {
-		uint16_t xpos;
-		uint16_t ypos;
-		uint16_t width;
-		uint16_t height;
-		int32_t type;
-	} rec;
-#pragma pack()
+	fbupdate_t fbupdate;
+	rec_t rec;
 
 	printf( "%s: %d %d:%d %dx%d\n", __func__, bpp, xpos, ypos, width, height);
 	int n;
@@ -210,19 +263,7 @@ int main()
 		n = read( cs, buf, len);
 		printf( "read ClientInit [%02x]\n", buf[0]);
 
-#pragma pack(1)
-		typedef struct {
-			uint8_t bpp, depth, big, truecol;
-			uint16_t rmax, gmax, bmax;
-			uint8_t rshift, gshift, bshift;
-			uint8_t padding[3];
-		} pixel_format_t;
-		struct {
-			uint16_t w, h;
-			pixel_format_t fmt;
-			uint32_t name_len;
-		} ServerInit;
-#pragma pack()
+		ServerInit_t ServerInit;
 		printf( "writing ServerInit..\n");
 		len = sizeof( ServerInit);
 		memset( &ServerInit, 0, len);
@@ -259,15 +300,7 @@ int main()
 			{
 				case csFramebufferUpdateRequest:
 				{
-#pragma pack(1)
-					struct {
-						uint8_t incr;
-						uint16_t xpos;
-						uint16_t ypos;
-						uint16_t width;
-						uint16_t height;
-					} fbupdatereq;
-#pragma pack()
+					fbupdatereq_t fbupdatereq;
 					printf( "reading framebufferupdaterequest event..\n");
 					len = sizeof( fbupdatereq);
 					n = read( cs, &fbupdatereq, len);
@@ -288,12 +321,7 @@ int main()
 					break;
 				case csSetEncodings:
 				{
-#pragma pack(1)
-					struct {
-						uint8_t padding0[1];
-						uint16_t nenc;
-					} encodings;
-#pragma pack()
+					encodings_t encodings;
 //					printf( "reading setencodings event..\n");
 					len = sizeof( encodings);
 					n = read( cs, &encodings, len);
@@ -324,22 +352,7 @@ int main()
 					break;
 				case csSetPixelFormat:
 				{
-#pragma pack(1)
-					struct {
-						uint8_t padding0[3];
-						uint8_t bpp;
-						uint8_t depth;
-						uint8_t big;
-						uint8_t truecol;
-						uint16_t rmax;
-						uint16_t gmax;
-						uint16_t bmax;
-						uint8_t rshift;
-						uint8_t gshift;
-						uint8_t bshift;
-						uint8_t padding1[3];
-					} pixfmt;
-#pragma pack()
+					pixfmt_t pixfmt;
 					printf( "reading setpixelformat event..\n");
 					len = sizeof( pixfmt);
 					n = read( cs, &pixfmt, len);
@@ -349,15 +362,21 @@ int main()
 					printf( "setpixelformat event : bpp=%d depth=%d big=%d truecol=%d rmax=%" PRIx16 " gmax=%" PRIx16 " bmax=%" PRIx16 " rshift=%d gshift=%d bshift=%d\n", pixfmt.bpp, pixfmt.depth, pixfmt.big, pixfmt.truecol, LE16(pixfmt.rmax), LE16(pixfmt.gmax), LE16(pixfmt.bmax), pixfmt.rshift, pixfmt.gshift, pixfmt.bshift);
 				}
 					break;
+				case csPointerEvent:
+				{
+					pointerev_t pointer;
+//					printf( "reading pointer event..\n");
+					len = sizeof( pointer);
+					n = read( cs, &pointer, len);
+					if (n <= 0)
+						end = 1;
+//					printf( "read returned %d\n", n);
+//					printf( "pointer event : bmask=%d xpos=%" PRId16 "ypos=%" PRId16 "\n", pointer.bmask, LE16(pointer.xpos), LE16(pointer.ypos));
+				}
+					break;
 				case csKeyEvent:
 				{
-#pragma pack(1)
-					struct {
-						uint8_t down;
-						uint8_t padding[2];
-						uint32_t key;
-					} key;
-#pragma pack()
+					keyev_t key;
 //					printf( "reading key event..\n");
 					len = sizeof( key);
 					n = read( cs, &key, len);
@@ -365,6 +384,24 @@ int main()
 						end = 1;
 //					printf( "read returned %d\n", n);
 					printf( "key event : down=%d key=%" PRIx32 "\n", key.down, LE32(key.key));
+				}
+					break;
+				case csClientCutText:
+				{
+					ccuttext_t cut;
+//					printf( "reading cut event..\n");
+					len = sizeof( cut);
+					n = read( cs, &cut, len);
+					if (n <= 0)
+						end = 1;
+//					printf( "read returned %d\n", n);
+					len = LE32(cut.len);
+					printf( "cut event : len=%" PRId32 "\n", len);
+					n = read( cs, buf, len);
+					if (n <= 0)
+						end = 1;
+//					printf( "read returned %d\n", n);
+					printf( "cut event : len=%" PRId32 "\n", LE32(cut.len));
 				}
 					break;
 				default:
