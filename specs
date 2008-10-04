@@ -15,6 +15,9 @@ vnc_init_server( port, init *)
 #define BPP
 #define PORT
 unsigned char screen[W * H * BPP / 8];
+pixel_format_t fmt = {
+	
+};
 main()
 {
 	init = {
