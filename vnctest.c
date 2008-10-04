@@ -56,6 +56,17 @@ enum {
 
 #pragma pack(1)
 typedef struct {
+	uint8_t bpp, depth, big, truecol;
+	uint16_t rmax, gmax, bmax;
+	uint8_t rshift, gshift, bshift;
+	uint8_t padding[3];
+} pixel_format_t;
+typedef struct {
+	uint16_t w, h;
+	pixel_format_t fmt;
+	uint32_t name_len;
+} ServerInit_t;
+typedef struct {
 	uint8_t type;
 	uint8_t padding0[1];
 	uint16_t nrec;
@@ -67,17 +78,6 @@ typedef struct {
 	uint16_t height;
 	int32_t type;
 } rec_t;
-typedef struct {
-	uint8_t bpp, depth, big, truecol;
-	uint16_t rmax, gmax, bmax;
-	uint8_t rshift, gshift, bshift;
-	uint8_t padding[3];
-} pixel_format_t;
-typedef struct {
-	uint16_t w, h;
-	pixel_format_t fmt;
-	uint32_t name_len;
-} ServerInit_t;
 typedef struct {
 	uint8_t padding0[1];
 	uint16_t nenc;
@@ -169,13 +169,13 @@ int FrameBufferUpdate( int fd, int bpp, int xpos, int ypos, int width, int heigh
 //			pixel <<= 16; // R
 //			pixel <<= 8; // G
 			pixel <<= 0; // B
-			printf( " %x", pixel);
+//			printf( " %x", pixel);
 			n = write( fd, &pixel, sizeof( pixel));
 			if (n <= 0)
 				return -1;
 		}
 	}
-	printf( "\n");
+//	printf( "\n");
 
 	return 0;
 }
