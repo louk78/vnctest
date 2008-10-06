@@ -3,21 +3,47 @@
 #include "vnc_proto.h"
 #include "vnc.h"
 
+#if 1					/* 32/24 bit rgb888 */
+typedef uint32_t pixel_t;
+#define TRUECOL	1
+#define RMAX	((1 << 8) - 1)
+#define GMAX	((1 << 8) - 1)
+#define BMAX	((1 << 8) - 1)
+#define RSHIFT	16
+#define GSHIFT	8
+#define BSHIFT	0
+#elif 0					/* 16 bit 6:5:5 */
+typedef uint16_t pixel_t;
+#else					/* 8 bit rgb323 */
+typedef uint8_t pixel_t;
+#define TRUECOL	0
+#define RMAX	((1 << 3) - 1)
+#define GMAX	((1 << 2) - 1)
+#define BMAX	((1 << 3) - 1)
+#define RSHIFT	5
+#define GSHIFT	3
+#define BSHIFT	0
+#endif
+//#define MIN(a,b) ((a) < (b) ? (a) : (b))
+#define MIN(a,b) ((a) ? (b) : 0)
+#define _(r,g,b) ((MIN(r,RMAX) << RSHIFT) + (MIN(g,GMAX) << GSHIFT) + (MIN(b,BMAX) << BSHIFT)),
+
+#define BIG 0
 #define W	10
 #define H	10
-#define BPP	8
+#define BPP	(sizeof( pixel_t) * 8)
 
-unsigned char screen[W * H * BPP / 8] = {
-	0x00, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x00,
-	0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x80,
-	0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x80,
-	0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x80,
-	0x80, 0x00, 0x00, 0x00, 0x05, 0x05, 0x00, 0x00, 0x00, 0x80,
-	0x80, 0x00, 0x00, 0x00, 0x40, 0x40, 0x00, 0x00, 0x00, 0x80,
-	0x80, 0x00, 0x00, 0x00, 0x05, 0x05, 0x00, 0x00, 0x00, 0x80,
-	0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x80,
-	0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x80,
-	0x00, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x00,
+pixel_t screen[W * H * BPP / 8] = {
+_(0,0,0)_(1,0,0)_(1,0,0)_(1,0,0)_(1,0,0)_(1,0,0)_(1,0,0)_(1,0,0)_(1,0,0)_(0,0,0)
+_(1,0,0)_(0,0,0)_(0,0,0)_(0,0,0)_(0,0,0)_(0,0,0)_(0,0,0)_(0,0,0)_(0,0,0)_(1,0,0)
+_(1,0,0)_(0,0,0)_(0,1,0)_(0,1,0)_(0,1,0)_(0,1,0)_(0,1,0)_(0,1,0)_(0,0,0)_(1,0,0)
+_(1,0,0)_(0,0,0)_(0,1,0)_(0,0,0)_(0,0,0)_(0,0,0)_(0,0,0)_(0,1,0)_(0,0,0)_(1,0,0)
+_(1,0,0)_(0,0,0)_(0,1,0)_(0,0,0)_(0,0,1)_(0,0,1)_(0,0,0)_(0,1,0)_(0,0,0)_(1,0,0)
+_(1,0,0)_(0,0,0)_(0,1,0)_(0,0,0)_(0,0,1)_(0,0,1)_(0,0,0)_(0,1,0)_(0,0,0)_(1,0,0)
+_(1,0,0)_(0,0,0)_(0,1,0)_(0,0,0)_(0,0,0)_(0,0,0)_(0,0,0)_(0,1,0)_(0,0,0)_(1,0,0)
+_(1,0,0)_(0,0,0)_(0,1,0)_(0,1,0)_(0,1,0)_(0,1,0)_(0,1,0)_(0,1,0)_(0,0,0)_(1,0,0)
+_(1,0,0)_(0,0,0)_(0,0,0)_(0,0,0)_(0,0,0)_(0,0,0)_(0,0,0)_(0,0,0)_(0,0,0)_(1,0,0)
+_(0,0,0)_(1,0,0)_(1,0,0)_(1,0,0)_(1,0,0)_(1,0,0)_(1,0,0)_(1,0,0)_(1,0,0)_(0,0,0)
 };
 
 vnc_server_init_t init = {
@@ -29,8 +55,14 @@ vnc_server_init_t init = {
 	.fmt = {
 		.bpp = BPP,
 		.depth = BPP,
-		.big = 0,
-		.truecol = 0,
+		.big = BIG,
+		.truecol = TRUECOL,
+		.rmax = RMAX,
+		.gmax = GMAX,
+		.bmax = BMAX,
+		.rshift = RSHIFT,
+		.gshift = GSHIFT,
+		.bshift = BSHIFT,
 	},
 };
 

@@ -46,6 +46,12 @@ typedef struct {
 	uint16_t nrec;
 } fbupdate_t;
 typedef struct {
+	uint8_t type;
+	uint8_t padding0[1];
+	uint16_t first;
+	uint16_t ncol;
+} setcmap_t;
+typedef struct {
 	uint16_t xpos;
 	uint16_t ypos;
 	uint16_t width;

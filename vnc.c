@@ -50,24 +50,52 @@ static int FrameBufferUpdate( vnc_t *vnc, int xpos, int ypos, int width, int hei
 	{
 		for (i = 0; i < width; i++)
 		{
-			uint32_t pixel;
+			int r, g, b;
+			uint32_t pixel = 0;
 			
-#if 0
-			pixel = !!screen[(ypos + j) * W + (xpos + i)] * 0xFF;
-//			pixel <<= 16; // R
-//			pixel <<= 8; // G
-			pixel <<= 0; // B
-#else
-			pixel = screen[(ypos + j) * W + (xpos + i)];
-			pixel = ((!!(pixel & 0xe0) * 0xFF) << 16) + ((!!(pixel & 0x18) * 0xFF) << 8) + ((!!(pixel & 0x07) * 0xFF) << 0);
-#endif
-//			printf( " %x", pixel);
-			n = write( vnc->cs, &pixel, sizeof( pixel));
+			switch (vnc->init->fmt.bpp)
+			{
+				case 8:
+					pixel = *((unsigned char *)screen + (ypos + j) * W + (xpos + i));
+					r = !!(pixel & 0xe0) * 0xFF;
+					g = !!(pixel & 0x18) * 0xFF;
+					b = !!(pixel & 0x07) * 0xFF;
+					break;
+				case 32:
+					pixel = *((uint32_t *)screen + (ypos + j) * W + (xpos + i));
+					r = (pixel & 0xFF0000) >> 16;
+					g = (pixel & 0x00FF00) >> 8;
+					b = (pixel & 0x0000FF) >> 0;
+					break;
+				default:
+					printf( "input fmt %d not handled\n", vnc->init->fmt.bpp);
+					abort();
+					break;
+			}
+			if (vnc->init->fmt.bpp != vnc->client_fmt.bpp)
+			{
+			switch (vnc->client_fmt.bpp)
+			{
+				case 8: // 3 2 3
+					pixel = ((r & 0x07) << 5) + ((g & 0x03) << 3) + ((b & 0x07) << 0);
+					break;
+				case 32: // 8 8 8
+					pixel = ((r & 0xFF) << 16) + ((g & 0xFF) << 8) + ((b & 0xFF) << 0);
+					break;
+				default:
+					printf( "output fmt %d not handled\n", vnc->client_fmt.bpp);
+					abort();
+					break;
+			}
+			}
+//			printf( " %x (%d:%d:%d)", pixel, r, g, b);
+			n = write( vnc->cs, &pixel, bpp / 8);
 			if (n <= 0)
 				return -1;
 		}
 	}
 //	printf( "\n");
+//	abort();
 
 	return 0;
 }
@@ -92,6 +120,7 @@ void *vnc_init_server( vnc_server_init_t *init)
 		memset( &sa, 0, sizeof( sa));
 		sa.sin_family = AF_INET;
 		sa.sin_port = htons( vnc->init->port);
+		printf( "about to bind to port %d\n", vnc->init->port);
 		bind( vnc->ss, (struct sockaddr *)&sa, sizeof( sa));
 		socklen_t len = sizeof( sa);
 		getsockname( vnc->ss, (struct sockaddr *)&sa, &len);
@@ -160,6 +189,9 @@ static int client_init( vnc_t *vnc)
 		perror( "read");
 		return -1;
 	}
+	if (n > (sizeof( buf) - 1))
+		n = sizeof( buf) - 1;
+	buf[n] = 0;
 	printf( "read version [%s]\n", buf);
 	int vermaj, vermin;
 	sscanf( buf, "RFB %d.%d\n", &vermaj, &vermin);
@@ -194,7 +226,7 @@ static int client_init( vnc_t *vnc)
 		}
 
 		printf( "writing pass..\n");
-		getchar();
+//		getchar();
 		snprintf( buf, sizeof( buf), "123456789abcdef0");
 		len = strlen( buf);
 		n = write( vnc->cs, buf, len);
@@ -209,7 +241,7 @@ static int client_init( vnc_t *vnc)
 		if (ver >= 308)
 		{
 			printf( "writing security..\n");
-			getchar();
+//			getchar();
 			len = 4;
 			memset( buf, 0, len);
 			n = write( vnc->cs, buf, len);
@@ -224,8 +256,6 @@ static int client_init( vnc_t *vnc)
 	printf( "read ClientInit [%02x]\n", buf[0]);
 
 	ServerInit_t ServerInit;
-	printf( "writing ServerInit..\n");
-	getchar();
 	len = sizeof( ServerInit);
 	memset( &ServerInit, 0, len);
 	snprintf( buf, sizeof( buf), "hello vnc");
@@ -243,6 +273,8 @@ static int client_init( vnc_t *vnc)
 	ServerInit.fmt.gshift = vnc->init->fmt.gshift;
 	ServerInit.fmt.bshift = vnc->init->fmt.bshift;
 	ServerInit.name_len = BE32(len2);
+	vnc->client_fmt = ServerInit.fmt;
+	printf( "writing ServerInit.. (%d %dx%d)\n", vnc->init->fmt.bpp, vnc->init->width, vnc->init->height);
 	n = write( vnc->cs, &ServerInit, len);
 	printf( "wrote %d bytes\n", n);
 	n = write( vnc->cs, buf, len2);
@@ -254,7 +286,7 @@ static int client_init( vnc_t *vnc)
 static int client_manage( vnc_t *vnc)
 {
 	int result = 0;
-	pixfmt_t pixfmt;
+//	pixfmt_t pixfmt;
 	int type;
 	int n;
 	char buf[1024];
@@ -302,7 +334,7 @@ static int client_manage( vnc_t *vnc)
 		case csSetEncodings:
 		{
 			encodings_t encodings;
-//			printf( "reading setencodings event..\n");
+			printf( "reading setencodings event..\n");
 			len = sizeof( encodings);
 			n = read( cs, &encodings, len);
 			if (n <= 0)
@@ -310,7 +342,7 @@ static int client_manage( vnc_t *vnc)
 				end = 1;
 				break;
 			}
-//			printf( "read returned %d\n", n);
+			printf( "read returned %d\n", n);
 			printf( "setencodings event : nenc=%d\n", HE16(encodings.nenc));
 			printf( "encodings :");
 			int i;
@@ -332,14 +364,44 @@ static int client_manage( vnc_t *vnc)
 			break;
 		case csSetPixelFormat:
 		{
-			printf( "reading setpixelformat event..\n");
-			len = sizeof( pixfmt);
-			n = read( cs, &pixfmt, len);
+			len = 3;
+			n = read( cs, &vnc->client_fmt, len); // skip padding
+			printf( "read returned %d\n", n);
 			if (n <= 0)
 				end = 1;
+			len = sizeof( vnc_pixel_format_t);
+			printf( "reading setpixelformat event (%d)..\n", len);
+			memset( &vnc->client_fmt, 0xDA, len);
+			n = read( cs, &vnc->client_fmt, len);
 			printf( "read returned %d\n", n);
+			if (n <= 0)
+				end = 1;
 			printf( "setpixelformat event : bpp=%d depth=%d big=%d truecol=%d rmax=%" PRIx16 " gmax=%" PRIx16 " bmax=%" PRIx16 " rshift=%d gshift=%d bshift=%d\n",
-					pixfmt.bpp, pixfmt.depth, pixfmt.big, pixfmt.truecol, HE16(pixfmt.rmax), HE16(pixfmt.gmax), HE16(pixfmt.bmax), pixfmt.rshift, pixfmt.gshift, pixfmt.bshift);
+					vnc->client_fmt.bpp, vnc->client_fmt.depth, vnc->client_fmt.big, vnc->client_fmt.truecol, HE16(vnc->client_fmt.rmax), HE16(vnc->client_fmt.gmax), HE16(vnc->client_fmt.bmax), vnc->client_fmt.rshift, vnc->client_fmt.gshift, vnc->client_fmt.bshift);
+			if (!vnc->client_fmt.truecol)
+			{
+				setcmap_t cmap;
+				int first, ncol;
+				first = 0;
+				ncol = 1 << vnc->client_fmt.depth;
+				cmap.type = scSetColourMapEntries;
+				cmap.first = BE16( first);
+				cmap.ncol = BE16( ncol);
+				n = write( cs, &cmap, sizeof( cmap));
+				printf( "sending cmap : first=%d ncol=%d\n", first, ncol);
+				int i;
+				for (i = 0; i < ncol; i++)
+				{
+					uint16_t r, g, b;
+					r = ((i & 0xE0) >> 5) * 255 / ((1 << 3) - 1);
+					g = ((i & 0x18) >> 3) * 255 / ((1 << 2) - 1);
+					b = ((i & 0x07) >> 0) * 255 / ((1 << 3) - 1);
+					
+					n = write( cs, &r, sizeof( r));
+					n = write( cs, &g, sizeof( g));
+					n = write( cs, &b, sizeof( b));
+				}
+			}
 		}
 			break;
 		case csPointerEvent:
@@ -386,11 +448,6 @@ static int client_manage( vnc_t *vnc)
 			printf( "cut event : len=%" PRId32 "\n", HE32(cut.len));
 		}
 			break;
-#if 0
-		case 1:
-			printf( "WARNING !!! SILENTLY SKIPPING UNKNOWN MESSAGE TYPE %d (end=%d)\n", type, end);
-			break;
-#endif
 		default:
 			printf( "unknown cs message type %d\n", type);
 			end = 1;
@@ -408,11 +465,6 @@ int vnc_sync( void *opaque)
 	vnc_t *vnc = opaque;
 
 //	printf( "%s\n", __func__);
-#if 0
-	static int count = 0;
-	if (count++ > 5)
-		result = -1;
-#else
 	if (vnc)
 	{
 		int n;
@@ -476,7 +528,6 @@ int vnc_sync( void *opaque)
 			}
 		}
 	}
-#endif
 
 	return result;
 }

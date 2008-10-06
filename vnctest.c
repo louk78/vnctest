@@ -395,8 +395,9 @@ int main( int argc, char *argv[])
 					break;
 				case csSetPixelFormat:
 				{
-					printf( "reading setpixelformat event..\n");
-					len = sizeof( pixfmt);
+					len = sizeof( pixel_format_t);
+					printf( "reading setpixelformat event (%d)..\n", len);
+					memset( &pixfmt, 0xDA, len);
 					n = read( cs, &pixfmt, len);
 					if (n <= 0)
 						end = 1;
