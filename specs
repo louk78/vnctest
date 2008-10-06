@@ -1,41 +1,38 @@
 
 server :
 --------
-
 typedef struct {
+	int port; // 0=automatic
+
  int width, height;
  char *name;
 } vnc_server_init_t;
-
 vnc_init_server( port, init *)
 -----------------
-
-#define W
-#define H
-#define BPP
-#define PORT
 unsigned char screen[W * H * BPP / 8];
 pixel_format_t fmt = {
-	
+	.bpp = BPP,
+	.depth = BPP,
+	.big = 0,
+	.truecol = 0,
 };
 main()
 {
-	init = {
-		.port = PORT,
-		.ServerInit
-// cb
-		.clientinit
-		.updatereq = updatereq,
-		.setpixfmt
-		.setenc
-		.keyev
-		.pointerev
-		.cut
-	};
-	p = vnc_init_server( &init);
+	void *p = vnc_init_server( &init);
+#ifdef VNC_HAVE_ASYNC
+	vnc_async( p);
+#endif
 	while (1)
 	{
+#ifdef VNC_HAVE_ASYNC
+		vnc_lock(p);
+#else
 		vnc_poll( p);
+#endif
+		/* update screen */
+#ifdef VNC_HAVE_ASYNC
+		vnc_unlock(p);
+#endif
 	}
 	vnc_close_server( p);
 }

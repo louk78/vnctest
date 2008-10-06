@@ -185,7 +185,7 @@ int FrameBufferUpdate( int fd, int bpp, int xpos, int ypos, int width, int heigh
 	return 0;
 }
 
-int main()
+int main( int argc, char *argv[])
 {
 //	memset( &screen, 0, sizeof( screen));
 	printf( "hello vnctest\n");
@@ -204,7 +204,14 @@ int main()
 	w = W; h = H; bpp = BPP; depth = DEPTH; big = BIG; truecol = TRUECOL;
 	rmax = RMAX; gmax = GMAX; bmax = BMAX;
 	rshift = RSHIFT; gshift = GSHIFT; bshift = bshift;
-	
+
+	int arg = 1;
+	while (arg < argc)
+	{
+		sscanf( argv[arg], "%d", &port);
+		break;
+	}
+
 	s = socket( PF_INET, SOCK_STREAM, 0);
 	int on = 1;
 	setsockopt( s, SOL_SOCKET, SO_REUSEADDR, &on, sizeof( on));

@@ -1,4 +1,4 @@
-TARGET= vnctest.exe
+TARGET= vnctest.exe main.exe
 CFLAGS=-Wall -Werror -g -O0 -fno-omit-frame-pointer
 CC=gcc
 
@@ -12,6 +12,12 @@ LDFLAGS+=`yacapi-config --libs`
 endif
 
 all: $(TARGET)
+
+main.o: main.c vnc.h vnc_proto.h
+vnc.o: vnc.c vnc.h vnc_proto.h
+
+main.exe: main.o vnc.o
+	$(CC) -o $@ $^ $(LDFLAGS)
 
 %.exe:	%.c
 	$(CC) -o $@ $(CFLAGS) $< $(LDFLAGS)
