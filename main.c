@@ -76,7 +76,8 @@ int vnc_key_event( void *opaque, int down, int key)
 
 int vnc_client_cut_text( void *opaque, int len, char *text)
 {
-	printf( "%s: opaque=%p len=%d text=[%s]\n", __func__, opaque, len, text);
+//	printf( "%s: opaque=%p len=%d text=[%s]\n", __func__, opaque, len, text);
+	printf( "%s: opaque=%p len=%d text=%p\n", __func__, opaque, len, text);
 
 	return 0;
 }

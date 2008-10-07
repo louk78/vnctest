@@ -311,6 +311,7 @@ static int client_manage( vnc_t *vnc)
 	int len;
 	int end = 0;
 
+	memset( buf, 0, sizeof( buf));
 //	printf( "reading type..\n");
 	n = read( cs, buf, 1);
 	if (n <= 0)
@@ -464,7 +465,7 @@ static int client_manage( vnc_t *vnc)
 			if (n <= 0)
 				end = 1;
 //			printf( "read returned %d\n", n);
-			printf( "cut event : buf=[%s]\n", buf);
+//			printf( "cut event : buf=[%s]\n", buf);
 			if (vnc->init->client_cut_text)
 				vnc->init->client_cut_text( vnc->init->opaque, len, buf);
 		}
