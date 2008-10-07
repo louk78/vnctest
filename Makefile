@@ -7,7 +7,7 @@ OS_WIN32=true
 endif
 
 ifdef OS_WIN32
-CFLAGS+=`yacapi-config --cflags`
+CFLAGS+=`yacapi-config --compat --cflags`
 LDFLAGS+=`yacapi-config --libs`
 endif
 

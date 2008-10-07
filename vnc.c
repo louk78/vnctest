@@ -16,7 +16,7 @@ typedef struct {
 	vnc_pixel_format_t client_fmt;
 } vnc_t;
 
-static int FrameBufferUpdate( vnc_t *vnc, int xpos, int ypos, int width, int height)
+static int FrameBufferUpdate( vnc_t *vnc, int incr, int xpos, int ypos, int width, int height)
 {
 	fbupdate_t fbupdate;
 	rec_t rec;
@@ -26,6 +26,8 @@ static int FrameBufferUpdate( vnc_t *vnc, int xpos, int ypos, int width, int hei
 	int W = vnc->init->width;
 
 //	printf( "%s: %d %d:%d %dx%d\n", __func__, bpp, xpos, ypos, width, height);
+	if (incr)		// TODO implement incr/dirty updates
+		return 0;
 	int n;
 	int len;
 	fbupdate.type = scFramebufferUpdate;
@@ -168,7 +170,6 @@ static int client_init( vnc_t *vnc)
 
 	printf( "%s: cs=%d ss=%d\n", __func__, vnc->cs, vnc->ss);
 	printf( "writing version..\n");
-//	getchar();
 	if (ver >= 308)
 		snprintf( buf, sizeof( buf), "RFB 003.008\n");
 	else if (ver >= 307)
@@ -180,7 +181,7 @@ static int client_init( vnc_t *vnc)
 	printf( "wrote %d bytes\n", n);
 
 	printf( "reading version..\n");
-	len = sizeof( buf);
+	len = 12;
 	memset( buf, 0xDA, sizeof( buf));
 	n = read( vnc->cs, buf, len);
 	printf( "read %d bytes\n", n);
@@ -199,7 +200,6 @@ static int client_init( vnc_t *vnc)
 	printf( "ver=%d\n", ver);
 
 	printf( "writing security..\n");
-//	getchar();
 	if (ver >= 307)
 	{
 		snprintf( buf, sizeof( buf), "\x01\x01");
@@ -226,7 +226,6 @@ static int client_init( vnc_t *vnc)
 		}
 
 		printf( "writing pass..\n");
-//		getchar();
 		snprintf( buf, sizeof( buf), "123456789abcdef0");
 		len = strlen( buf);
 		n = write( vnc->cs, buf, len);
@@ -241,7 +240,6 @@ static int client_init( vnc_t *vnc)
 		if (ver >= 308)
 		{
 			printf( "writing security..\n");
-//			getchar();
 			len = 4;
 			memset( buf, 0, len);
 			n = write( vnc->cs, buf, len);
@@ -323,8 +321,7 @@ static int client_manage( vnc_t *vnc)
 			w = HE16(fbupdatereq.width);
 			h = HE16(fbupdatereq.height);
 //			printf( "framebufferupdaterequest event : incr=%d xpos=%" PRId16 " ypos=%" PRId16 " width=%" PRId16 " height=%" PRId16 "\n", fbupdatereq.incr, x, y, w, h);
-
-			if (FrameBufferUpdate( vnc, x, y, w, h) < 0)
+			if (FrameBufferUpdate( vnc, fbupdatereq.incr, x, y, w, h) < 0)
 			{
 				end = 1;
 				break;
