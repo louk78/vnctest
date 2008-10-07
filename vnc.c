@@ -24,10 +24,29 @@ static int FrameBufferUpdate( vnc_t *vnc, int incr, int xpos, int ypos, int widt
 	int bpp = vnc->client_fmt.bpp;
 	unsigned char *screen = vnc->init->screen;
 	int W = vnc->init->width;
+	int H = vnc->init->height;
+	int i, j;
 
 //	printf( "%s: %d %d:%d %dx%d\n", __func__, bpp, xpos, ypos, width, height);
-	if (incr)		// TODO implement incr/dirty updates
-		return 0;
+	static int oldsum = 0;
+	int sum = 0;
+	int dirty = 0;
+	for (j = 0; j < H; j++)
+	{
+		for (i = 0; i < W; i++)
+		{
+			sum += *((unsigned char *)screen + j * W + i);
+		}
+	}
+	if (oldsum != sum)
+		dirty = 1;
+	oldsum = sum;
+
+	if (incr && !dirty)
+	{
+		return 0;		// TODO implement incr/dirty updates
+	}
+
 	int n;
 	int len;
 	fbupdate.type = scFramebufferUpdate;
@@ -47,7 +66,6 @@ static int FrameBufferUpdate( vnc_t *vnc, int incr, int xpos, int ypos, int widt
 	if (n <= 0)
 		return -1;
 	num = width * height * bpp / 8;
-	int i, j;
 	for (j = 0; j < height; j++)
 	{
 		for (i = 0; i < width; i++)
@@ -411,6 +429,8 @@ static int client_manage( vnc_t *vnc)
 				end = 1;
 //				printf( "read returned %d\n", n);
 //				printf( "pointer event : bmask=%d xpos=%" PRId16 "ypos=%" PRId16 "\n", pointer.bmask, HE16(pointer.xpos), HE16(pointer.ypos));
+			if (vnc->init->pointer_event)
+				vnc->init->pointer_event( vnc->init->opaque, pointer.bmask, HE16(pointer.xpos), HE16(pointer.ypos));
 		}
 			break;
 		case csKeyEvent:
@@ -425,6 +445,8 @@ static int client_manage( vnc_t *vnc)
 			printf( "key event : down=%d key=%" PRIx32 "\n", key.down, HE32(key.key));
 			if (HE32(key.key) == 0xff1b)
 				end = 1;
+			if (vnc->init->key_event)
+				vnc->init->key_event( vnc->init->opaque, key.down, HE32(key.key));
 		}
 			break;
 		case csClientCutText:
@@ -442,7 +464,9 @@ static int client_manage( vnc_t *vnc)
 			if (n <= 0)
 				end = 1;
 //			printf( "read returned %d\n", n);
-			printf( "cut event : len=%" PRId32 "\n", HE32(cut.len));
+			printf( "cut event : buf=[%s]\n", buf);
+			if (vnc->init->client_cut_text)
+				vnc->init->client_cut_text( vnc->init->opaque, len, buf);
 		}
 			break;
 		default:
