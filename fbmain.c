@@ -1,5 +1,8 @@
 #include <stdio.h>
 #include <unistd.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 
 #include "vnc_proto.h"
 #include "vnc.h"
@@ -120,6 +123,8 @@ int main( int argc, char *argv[])
 #ifdef VNC_HAVE_ASYNC
 	vnc_async( p);
 #endif
+	int fd;
+	fd = open( "/dev/fb0", O_RDONLY);
 	while (1)
 	{
 #ifdef VNC_HAVE_ASYNC
@@ -130,10 +135,8 @@ int main( int argc, char *argv[])
 			break;
 #endif
 		/* update screen here */
-		static int count = 0;
 		int maxlen = SCREEN_LEN;
-		*((unsigned char *)screen + (count % maxlen)) = 0xFF;
-		count++;
+		read( fd, screen, maxlen);
 		sleep( 1);
 #ifdef VNC_HAVE_ASYNC
 		if (vnc_unlock( p) < 0)
