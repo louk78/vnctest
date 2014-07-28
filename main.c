@@ -134,7 +134,7 @@ int main( int argc, char *argv[])
 		int maxlen = SCREEN_LEN;
 		*((unsigned char *)screen + (count % maxlen)) = 0xFF;
 		count++;
-		sleep( 1);
+		usleep( 10000);
 #ifdef VNC_HAVE_ASYNC
 		if (vnc_unlock( p) < 0)
 			break;
