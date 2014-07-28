@@ -55,7 +55,6 @@ static int FrameBufferUpdate( vnc_t *vnc, int incr, int xpos, int ypos, int widt
 	n = write( vnc->cs, &fbupdate, len);
 	if (n <= 0)
 		return -1;
-	int num;
 	rec.xpos = BE16(xpos);
 	rec.ypos = BE16(ypos);
 	rec.width = BE16(width);
@@ -65,7 +64,6 @@ static int FrameBufferUpdate( vnc_t *vnc, int incr, int xpos, int ypos, int widt
 	n = write( vnc->cs, &rec, len);
 	if (n <= 0)
 		return -1;
-	num = width * height * bpp / 8;
 	for (j = 0; j < height; j++)
 	{
 		for (i = 0; i < width; i++)

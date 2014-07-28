@@ -147,7 +147,6 @@ int FrameBufferUpdate( int fd, int bpp, int xpos, int ypos, int width, int heigh
 	n = write( fd, &fbupdate, len);
 	if (n <= 0)
 		return -1;
-	int num;
 	rec.xpos = BE16(xpos);
 	rec.ypos = BE16(ypos);
 	rec.width = BE16(width);
@@ -157,7 +156,6 @@ int FrameBufferUpdate( int fd, int bpp, int xpos, int ypos, int width, int heigh
 	n = write( fd, &rec, len);
 	if (n <= 0)
 		return -1;
-	num = width * height * bpp / 8;
 	int i, j;
 	for (j = 0; j < height; j++)
 	{
@@ -203,7 +201,7 @@ int main( int argc, char *argv[])
 	
 	w = W; h = H; bpp = BPP; depth = DEPTH; big = BIG; truecol = TRUECOL;
 	rmax = RMAX; gmax = GMAX; bmax = BMAX;
-	rshift = RSHIFT; gshift = GSHIFT; bshift = bshift;
+	rshift = RSHIFT; gshift = GSHIFT; bshift = BSHIFT;
 
 	int arg = 1;
 	while (arg < argc)
