@@ -2,9 +2,12 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <unistd.h>
 
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 
 enum { handshake = 'H', security = 'S', init = 'I', normal = 'N' } state = handshake;
 enum { v00, v33 = 0x0303, v37, v38 } version = v00;
@@ -21,7 +24,7 @@ ssize_t complete_read( int fd, void *buf, size_t count)
 			return n;
 		result += n;
 	}
-	printf( "%s: read %d bytes [%s]\n", __func__, result, (char *)buf);
+	printf( "%s: read %d bytes [%s]\n", __func__, (int)result, (char *)buf);
 	return result;
 }
 // way : 0=server, 1=client
