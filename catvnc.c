@@ -3,6 +3,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <math.h>
 
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -20,6 +21,7 @@ int verbose = VERBOSE;
 
 enum { handshake = 'H', security = 'S', security_result = 'R', init = 'I', normal = 'N' } state = handshake;
 enum { v00, v33 = 0x0303, v37, v38 } version = v00;
+int BytesPerPixel = 0;
 
 ssize_t complete_read( int fd, void *buf, size_t count)
 {
@@ -39,6 +41,7 @@ ssize_t complete_read( int fd, void *buf, size_t count)
 	return result;
 }
 // way : 0=server, 1=client
+enum { way_server, way_client };
 int get_message( int way, char *who, int s, char *buf, int len)
 {
 	int result = 0;
@@ -94,7 +97,7 @@ int get_message( int way, char *who, int s, char *buf, int len)
 #endif
 					break;
 			}
-#if 1
+#if 0
 					verma = 3;
 					vermi = 3;
 					int ver2 = verma * 1000 + vermi; 
@@ -132,7 +135,7 @@ int get_message( int way, char *who, int s, char *buf, int len)
 					{
 						dprintf( 5, "server refused security\n");
 						uint32_t len;
-						n = 4;
+						n = sizeof( len);
 						n = complete_read( s, buf + result, n);
 						if (n == -1)
 						{
@@ -187,7 +190,7 @@ int get_message( int way, char *who, int s, char *buf, int len)
 					}
 					result += n;
 					n = buf[0];
-					if (way == 0)
+					if (way == way_server)
 					{
 						dprintf( 4, "%c: %s read security returned %d types\n", state, who, n);
 						n = complete_read( s, buf + result, n);
@@ -203,7 +206,7 @@ int get_message( int way, char *who, int s, char *buf, int len)
 							return -__LINE__;
 						}
 						dprintf( 5, "sec type 0 is %02x\n", *(int *)(buf + result));
-#if 1
+#if 0
 						dprintf( 1, "spoofing sec type to %02x..\n", 1);
 						memset( buf + result, 0x1, n);
 #endif
@@ -215,7 +218,7 @@ int get_message( int way, char *who, int s, char *buf, int len)
 						{
 							dprintf( 5, "client refused security\n");
 							uint32_t len;
-							n = 4;
+							n = sizeof( len);
 							n = complete_read( s, buf + result, n);
 							if (n == -1)
 							{
@@ -291,7 +294,7 @@ int get_message( int way, char *who, int s, char *buf, int len)
 		case init:
 			switch (way)
 			{
-				case 1:
+				case way_client:
 					n = 1;
 					n = complete_read( s, buf, n);
 					if (n == -1)
@@ -308,7 +311,7 @@ int get_message( int way, char *who, int s, char *buf, int len)
 					result += n;
 					dprintf( 4, "%c: %s read init returned %d\n", state, who, buf[0]);
 					break;
-				case 0:
+				case way_server:
 					n = 20;
 					n = complete_read( s, buf, n);
 					if (n == -1)
@@ -322,10 +325,12 @@ int get_message( int way, char *who, int s, char *buf, int len)
 						printf( "%s hangup\n", who);
 						return -__LINE__;
 					}
+					BytesPerPixel = *(uint8_t *)(buf + result + 4) / 8;
+					dprintf( 0, "%c: %s found BytesPerPixel=%d\n", state, who, BytesPerPixel);
 					result += n;
 					dprintf( 4, "%c: %s read init header returned %d\n", state, who, n);
 					uint32_t len;
-					n = 4;
+					n = sizeof( len);
 					n = complete_read( s, buf + result, n);
 					if (n == -1)
 					{
@@ -338,7 +343,7 @@ int get_message( int way, char *who, int s, char *buf, int len)
 						printf( "%s hangup\n", who);
 						return -__LINE__;
 					}
-					len = htonl( *(uint32_t *)(buf + result));
+					len = ntohl( *(uint32_t *)(buf + result));
 					result += n;
 					dprintf( 4, "%c: %s read init returned len %d\n", state, who, len);
 					n = len;
@@ -365,12 +370,299 @@ int get_message( int way, char *who, int s, char *buf, int len)
 				state = normal;
 			}
 			break;
+		case normal:
+			switch (way)
+			{
+				case way_server:
+					n = 1;
+					n = complete_read( s, buf, n);
+					if (n == -1)
+					{
+						printf( "%s ", who);
+						perror( "read");
+						return -__LINE__;
+					}
+					if (!n)
+					{
+						printf( "%s hangup\n", who);
+						return -__LINE__;
+					}
+					result += n;
+					dprintf( 2, "%c: %s read normal returned type %d\n", state, who, buf[0]);
+					switch (buf[0])
+					{
+						case 0:
+						{
+							dprintf( 1, "%c: %s FrameBufferUpdate\n", state, who);
+							n = 1;
+							n = complete_read( s, buf + result, n);
+							if (n == -1)
+							{
+								printf( "%s ", who);
+								perror( "read");
+								return -__LINE__;
+							}
+							if (!n)
+							{
+								printf( "%s hangup\n", who);
+								return -__LINE__;
+							}
+							result += n;
+							uint16_t len;
+							n = sizeof( len);
+							n = complete_read( s, buf + result, n);
+							if (n == -1)
+							{
+								printf( "%s ", who);
+								perror( "read");
+								return -__LINE__;
+							}
+							if (!n)
+							{
+								printf( "%s hangup\n", who);
+								return -__LINE__;
+							}
+							len = ntohs( *(uint16_t *)(buf + result));
+							result += n;
+							dprintf( 2, "%c: %s FrameBufferUpdate returned len %d\n", state, who, len);
+							int i;
+							for (i = 0; i < len; i++)
+							{
+								n = 12;
+								n = complete_read( s, buf + result, n);
+								if (n == -1)
+								{
+									printf( "%s ", who);
+									perror( "read");
+									return -__LINE__;
+								}
+								if (!n)
+								{
+									printf( "%s hangup\n", who);
+									return -__LINE__;
+								}
+								uint16_t width, height;
+								width = ntohs( *(uint16_t *)(buf + result + 4));
+								height = ntohs( *(uint16_t *)(buf + result + 6));
+								dprintf( 0, "%c: %s FrameBufferUpdate found rect %dx%d\n", state, who, width, height);
+								result += n;
+								n = width * height * BytesPerPixel + floor((width + 7) / 8) * height;
+								n = complete_read( s, buf + result, n);
+								if (n == -1)
+								{
+									printf( "%s ", who);
+									perror( "read");
+									return -__LINE__;
+								}
+								if (!n)
+								{
+									printf( "%s hangup\n", who);
+									return -__LINE__;
+								}
+								result += n;
+							}
+						}
+							break;
+						case 1:
+						{
+							dprintf( 1, "%c: %s SetColourMapEntries\n", state, who);
+							n = 3;
+							n = complete_read( s, buf + result, n);
+							if (n == -1)
+							{
+								printf( "%s ", who);
+								perror( "read");
+								return -__LINE__;
+							}
+							if (!n)
+							{
+								printf( "%s hangup\n", who);
+								return -__LINE__;
+							}
+							result += n;
+							uint16_t len;
+							n = sizeof( len);
+							n = complete_read( s, buf + result, n);
+							if (n == -1)
+							{
+								printf( "%s ", who);
+								perror( "read");
+								return -__LINE__;
+							}
+							if (!n)
+							{
+								printf( "%s hangup\n", who);
+								return -__LINE__;
+							}
+							len = ntohs( *(uint16_t *)(buf + result));
+							result += n;
+							dprintf( 2, "%c: %s SetColourMapEntries returned len %d\n", state, who, len);
+							n = len * 6;
+							n = complete_read( s, buf + result, n);
+							if (n == -1)
+							{
+								printf( "%s ", who);
+								perror( "read");
+								return -__LINE__;
+							}
+							if (!n)
+							{
+								printf( "%s hangup\n", who);
+								return -__LINE__;
+							}
+							result += n;
+						}
+							break;
+						default:
+							dprintf( 0, "%c: %s read normal returned unknown type %d\n", state, who, buf[0]);
+							result = -1;
+							break;
+					}
+					break;
+				case way_client:
+					n = 1;
+					n = complete_read( s, buf, n);
+					if (n == -1)
+					{
+						printf( "%s ", who);
+						perror( "read");
+						return -__LINE__;
+					}
+					if (!n)
+					{
+						printf( "%s hangup\n", who);
+						return -__LINE__;
+					}
+					result += n;
+					dprintf( 2, "%c: %s read normal returned type %d\n", state, who, buf[0]);
+					switch (buf[0])
+					{
+						case 0:
+							dprintf( 1, "%c: %s SetPixelFormat\n", state, who);
+							n = 19;
+							n = complete_read( s, buf + result, n);
+							if (n == -1)
+							{
+								printf( "%s ", who);
+								perror( "read");
+								return -__LINE__;
+							}
+							if (!n)
+							{
+								printf( "%s hangup\n", who);
+								return -__LINE__;
+							}
+							result += n;
+							break;
+						case 2:
+						{
+							dprintf( 1, "%c: %s SetEncodings\n", state, who);
+							n = 1;
+							n = complete_read( s, buf + result, n);		// padding
+							result += n;
+							uint16_t len;
+							n = sizeof( len);
+							n = complete_read( s, buf + result, n);
+							if (n == -1)
+							{
+								printf( "%s ", who);
+								perror( "read");
+								return -__LINE__;
+							}
+							if (!n)
+							{
+								printf( "%s hangup\n", who);
+								return -__LINE__;
+							}
+							len = ntohs( *(uint16_t *)(buf + result));
+							result += n;
+							dprintf( 2, "%c: %s SetEncodings returned len %d\n", state, who, len);
+							n = len * 4;
+							n = complete_read( s, buf + result, n);
+							if (n == -1)
+							{
+								printf( "%s ", who);
+								perror( "read");
+								return -__LINE__;
+							}
+							if (!n)
+							{
+								printf( "%s hangup\n", who);
+								return -__LINE__;
+							}
+							result += n;
+						}
+							break;
+						case 3:
+							dprintf( 1, "%c: %s FrameBufferUpdateRequest\n", state, who);
+							n = 9;
+							n = complete_read( s, buf + result, n);
+							if (n == -1)
+							{
+								printf( "%s ", who);
+								perror( "read");
+								return -__LINE__;
+							}
+							if (!n)
+							{
+								printf( "%s hangup\n", who);
+								return -__LINE__;
+							}
+							result += n;
+							break;
+						case 4:
+							dprintf( 1, "%c: %s KeyEvent\n", state, who);
+							n = 7;
+							n = complete_read( s, buf + result, n);
+							if (n == -1)
+							{
+								printf( "%s ", who);
+								perror( "read");
+								return -__LINE__;
+							}
+							if (!n)
+							{
+								printf( "%s hangup\n", who);
+								return -__LINE__;
+							}
+							result += n;
+							break;
+						case 5:
+							dprintf( 1, "%c: %s PointerEvent\n", state, who);
+							n = 5;
+							n = complete_read( s, buf + result, n);
+							if (n == -1)
+							{
+								printf( "%s ", who);
+								perror( "read");
+								return -__LINE__;
+							}
+							if (!n)
+							{
+								printf( "%s hangup\n", who);
+								return -__LINE__;
+							}
+							result += n;
+							break;
+						default:
+							dprintf( 0, "%c: %s read normal returned unknown type %d\n", state, who, buf[0]);
+							result = -1;
+							break;
+					}
+					break;
+			}
+			break;
 		default:
 			printf( "unknown state %d\n", state);
 			return -__LINE__;
 			break;
 	}
 	dprintf( 5, "%s: read %d bytes [%s]\n", __func__, (int)result, (char *)buf);
+	if (result > len)
+	{
+		printf( "%s: AARRGGHH we read more bytes than available in buffer (len=%d result=%d)\n", __func__, len, (int)result);
+		exit( 0);
+	}
 	return result;
 }
 
@@ -383,6 +675,7 @@ int main( int argc, char *argv[])
 	struct sockaddr_in sa;
 	struct sockaddr_in ssa;
 	int use_get_message = 1;
+	int nwatchdog = 8;
 	int arg = 1;
 	int n;
 
@@ -407,6 +700,10 @@ int main( int argc, char *argv[])
 				if (arg < argc)
 				{
 					sscanf( argv[arg++], "%d", &use_get_message);
+					if (arg < argc)
+					{
+						sscanf( argv[arg++], "%d", &nwatchdog);
+					}
 				}
 			}
 		}
@@ -459,7 +756,7 @@ int main( int argc, char *argv[])
 			int m, i;
 			int max = -1;
 			fd_set rfds;
-			unsigned char buf[1024];
+			unsigned char buf[2048];
 
 			FD_ZERO( &rfds);
 			if (ss != -1)
@@ -485,7 +782,7 @@ int main( int argc, char *argv[])
 			{
 				memset( buf, 0, sizeof( buf));
 				if (use_get_message)
-					n = get_message( 1, "client", cs, (char *)buf, sizeof( buf));
+					n = get_message( way_client, "client", cs, (char *)buf, sizeof( buf));
 				else
 					n = read( cs, buf, sizeof( buf));
 				if (!n)
@@ -498,13 +795,19 @@ int main( int argc, char *argv[])
 					printf( "cli get_message returned %d\n", n);
 					break;
 				}
-//				dprintf( 0, "client write %3d bytes to server : %02x %02x %02x.. [%s]\n", n, buf[0], buf[1], buf[2], buf);
-				dprintf( 0, "client write %3d bytes to server :", n);
-				for (i = 0; i < n; i++)
+//				dprintf( 0, "client write %4d bytes to server : %02x %02x %02x.. [%s]\n", n, buf[0], buf[1], buf[2], buf);
+				dprintf( 0, "client write %4d bytes to server :", n);
+				m = n;
+#define MAX 2048
+				if (m > MAX)
+					m = MAX;
+				for (i = 0; i < m; i++)
 				{
 					_dprintf( 0, " %02x", buf[i]);
 				}
-				dprintf( 0, "\n");
+				if (i < n)
+					_dprintf( 0, " ..");
+				_dprintf( 0, "\n");
 				m = write( ss, buf, n);
 				if (m != n)
 				{
@@ -515,7 +818,7 @@ int main( int argc, char *argv[])
 			{
 				memset( buf, 0, sizeof( buf));
 				if (use_get_message)
-					n = get_message( 0, "server", ss, (char *)buf, sizeof( buf));
+					n = get_message( way_server, "server", ss, (char *)buf, sizeof( buf));
 				else
 					n = read( ss, buf, sizeof( buf));
 				if (!n)
@@ -528,13 +831,18 @@ int main( int argc, char *argv[])
 					printf( "ser get_message returned %d\n", n);
 					break;
 				}
-//				dprintf( 0, "server write %3d bytes to client : %02x %02x %02x.. [%s]\n", n, buf[0], buf[1], buf[2], buf);
-				dprintf( 0, "server write %3d bytes to client :", n);
-				for (i = 0; i < n; i++)
+//				dprintf( 0, "server write %4d bytes to client : %02x %02x %02x.. [%s]\n", n, buf[0], buf[1], buf[2], buf);
+				dprintf( 0, "server write %4d bytes to client :", n);
+				m = n;
+				if (m > MAX)
+					m = MAX;
+				for (i = 0; i < m; i++)
 				{
 					_dprintf( 0, " %02x", buf[i]);
 				}
-				dprintf( 0, "\n");
+				if (i < n)
+					_dprintf( 0, " ..");
+				_dprintf( 0, "\n");
 				m = write( cs, buf, n);
 				if (m != n)
 				{
@@ -543,9 +851,10 @@ int main( int argc, char *argv[])
 			}
 			
 			static int count = 0;
-			if (count++ > 5)
+			if (count++ >= nwatchdog)
 			{
 				printf( "watchdog\n");
+				getchar();
 				break;
 			}
 		}

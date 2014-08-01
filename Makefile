@@ -20,6 +20,8 @@ all: $(TARGET)
 main.o: main.c vnc.h vnc_proto.h
 vnc.o: vnc.c vnc.h vnc_proto.h
 
+catvnc.exe: LDFLAGS+=-lm
+
 main.exe: main.o vnc.o
 	$(CC) -o $@ $^ $(LDFLAGS)
 
