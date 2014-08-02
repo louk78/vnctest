@@ -441,25 +441,60 @@ int get_message( int way, char *who, int s, char *buf, int len)
 									printf( "%s hangup\n", who);
 									return -__LINE__;
 								}
-								uint16_t width, height;
+								uint16_t x, y, width, height;
+								uint32_t enc;
+								x = ntohs( *(uint16_t *)(buf + result + 0));
+								y = ntohs( *(uint16_t *)(buf + result + 2));
 								width = ntohs( *(uint16_t *)(buf + result + 4));
 								height = ntohs( *(uint16_t *)(buf + result + 6));
-								dprintf( 0, "%c: %s FrameBufferUpdate found rect %dx%d\n", state, who, width, height);
+								enc = ntohl( *(uint32_t *)(buf + result + 8));
+								dprintf( 0, "%c: %s FrameBufferUpdate found rect %d:%d %dx%d enc %08" PRIx32 "\n", state, who, x, y, width, height, enc);
 								result += n;
-								n = width * height * BytesPerPixel + floor((width + 7) / 8) * height;
-								n = complete_read( s, buf + result, n);
-								if (n == -1)
+								if (enc == 0xffffff21)
 								{
-									printf( "%s ", who);
-									perror( "read");
-									return -__LINE__;
+									dprintf( 0, "%c: %s DesktopSize pseudo encoding\n", state, who);
 								}
-								if (!n)
+								else if (enc == 0xffffff11)
 								{
-									printf( "%s hangup\n", who);
-									return -__LINE__;
+									dprintf( 0, "%c: %s Cursor pseudo encoding\n", state, who);
+									n = width * height * BytesPerPixel + floor((width + 7) / 8) * height;
+									n = complete_read( s, buf + result, n);
+									if (n == -1)
+									{
+										printf( "%s ", who);
+										perror( "read");
+										return -__LINE__;
+									}
+									if (!n)
+									{
+										printf( "%s hangup\n", who);
+										return -__LINE__;
+									}
+									result += n;
 								}
-								result += n;
+								else if (enc == 0)
+								{
+									dprintf( 0, "%c: %s Raw encoding\n", state, who);
+									n = width * height * BytesPerPixel;
+									n = complete_read( s, buf + result, n);
+									if (n == -1)
+									{
+										printf( "%s ", who);
+										perror( "read");
+										return -__LINE__;
+									}
+									if (!n)
+									{
+										printf( "%s hangup\n", who);
+										return -__LINE__;
+									}
+									result += n;
+								}
+								else
+								{
+									printf( "unsupported encoding %08" PRIx32 "\n", enc);
+									exit( 1);
+								}
 							}
 						}
 							break;
