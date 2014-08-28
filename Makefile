@@ -3,7 +3,9 @@ TARGET= vnctest.exe main.exe fbmain.exe
 TARGET+=sdlmain.exe
 TARGET+=catvnc.exe
 
-CFLAGS=-Wall -Werror -g -O0 -fno-omit-frame-pointer
+CFLAGS=-Wall -Werror
+CFLAGS+=-g
+CFLAGS+=-O0
 CC=gcc
 
 ifneq ($(strip $(shell $(CC) -v 2>&1 | grep "mingw")),)

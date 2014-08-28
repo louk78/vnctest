@@ -10,11 +10,12 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
+int watchdog = 0;
 #define VERBOSE 0
 #ifdef VERBOSE
 int verbose = VERBOSE;
 #define _dprintf(l,...) do{if (l <= verbose){printf(__VA_ARGS__);}}while(0)
-#define dprintf(l,...) do{if (l <= verbose){printf( "%d/%d:%3d ", l, verbose, __LINE__);printf(__VA_ARGS__);}}while(0)
+#define dprintf(l,...) do{if (l <= verbose){printf( "%d/%d:%3d w%d ", l, verbose, __LINE__, watchdog);printf(__VA_ARGS__);}}while(0)
 #else
 #define dprintf(...) do{}while(0)
 #endif
@@ -71,7 +72,7 @@ int get_message( int way, char *who, int s, char *buf, int len)
 			sscanf( buf + 4, "%03d.%03d", &verma, &vermi);
 			dprintf( 5, "verma=%d vermi=%d\n", verma, vermi);
 			ver = verma * 1000 + vermi;
-			dprintf( 4, "%c: %s read handshake returned ver %d\n", state, who, ver);
+			dprintf( 0, "%c: %s read handshake returned ver %d\n", state, who, ver);
 			switch (ver)
 			{
 				default:
@@ -130,7 +131,7 @@ int get_message( int way, char *who, int s, char *buf, int len)
 						return -__LINE__;
 					}
 					result += n;
-					dprintf( 4, "%c: %s read security returned type %08" PRIx32 "\n", state, who, *(uint32_t *)(buf));
+					dprintf( 0, "%c: %s read security returned type %08" PRIx32 "\n", state, who, *(uint32_t *)(buf));
 					if (!*(uint32_t *)buf)
 					{
 						dprintf( 5, "server refused security\n");
@@ -192,7 +193,7 @@ int get_message( int way, char *who, int s, char *buf, int len)
 					n = buf[0];
 					if (way == way_server)
 					{
-						dprintf( 4, "%c: %s read security returned %d types\n", state, who, n);
+						dprintf( 0, "%c: %s read security returned %d types\n", state, who, n);
 						n = complete_read( s, buf + result, n);
 						if (n == -1)
 						{
@@ -216,7 +217,7 @@ int get_message( int way, char *who, int s, char *buf, int len)
 					{
 						if (!n)
 						{
-							dprintf( 5, "client refused security\n");
+							dprintf( 0, "client refused security\n");
 							uint32_t len;
 							n = sizeof( len);
 							n = complete_read( s, buf + result, n);
@@ -252,7 +253,7 @@ int get_message( int way, char *who, int s, char *buf, int len)
 						}
 						else
 						{
-							dprintf( 4, "%c: %s read security returned type %d\n", state, who, n);
+							dprintf( 0, "%c: %s read security returned type %d\n", state, who, n);
 							dprintf( 5, "result=%d\n", result);
 						}
 					}
@@ -283,7 +284,7 @@ int get_message( int way, char *who, int s, char *buf, int len)
 				return -__LINE__;
 			}
 			result += n;
-			dprintf( 4, "%c: %s read security result returned %08" PRIx32 "\n", state, who, *(uint32_t *)(buf));
+			dprintf( 0, "%c: %s read security result returned %08" PRIx32 "\n", state, who, *(uint32_t *)(buf));
 			if (++count == 1)
 			{
 				dprintf( 4, "%c: %s switch to init\n", state, who);
@@ -309,7 +310,7 @@ int get_message( int way, char *who, int s, char *buf, int len)
 						return -__LINE__;
 					}
 					result += n;
-					dprintf( 4, "%c: %s read init returned %d\n", state, who, buf[0]);
+					dprintf( 0, "%c: %s read init returned %d\n", state, who, buf[0]);
 					break;
 				case way_server:
 					n = 20;
@@ -345,7 +346,7 @@ int get_message( int way, char *who, int s, char *buf, int len)
 					}
 					len = ntohl( *(uint32_t *)(buf + result));
 					result += n;
-					dprintf( 4, "%c: %s read init returned len %d\n", state, who, len);
+					dprintf( 0, "%c: %s read init returned len %d\n", state, who, len);
 					n = len;
 					n = complete_read( s, buf + result, n);
 					if (n == -1)
@@ -393,7 +394,7 @@ int get_message( int way, char *who, int s, char *buf, int len)
 					{
 						case 0:
 						{
-							dprintf( 1, "%c: %s FrameBufferUpdate\n", state, who);
+							dprintf( 2, "%c: %s FrameBufferUpdate\n", state, who);
 							n = 1;
 							n = complete_read( s, buf + result, n);
 							if (n == -1)
@@ -424,7 +425,7 @@ int get_message( int way, char *who, int s, char *buf, int len)
 							}
 							len = ntohs( *(uint16_t *)(buf + result));
 							result += n;
-							dprintf( 2, "%c: %s FrameBufferUpdate returned len %d\n", state, who, len);
+							dprintf( 0, "%c: %s FrameBufferUpdate returned len %d\n", state, who, len);
 							int i;
 							for (i = 0; i < len; i++)
 							{
@@ -531,7 +532,7 @@ int get_message( int way, char *who, int s, char *buf, int len)
 							}
 							len = ntohs( *(uint16_t *)(buf + result));
 							result += n;
-							dprintf( 2, "%c: %s SetColourMapEntries returned len %d\n", state, who, len);
+							dprintf( 0, "%c: %s SetColourMapEntries returned len %d\n", state, who, len);
 							n = len * 6;
 							n = complete_read( s, buf + result, n);
 							if (n == -1)
@@ -709,8 +710,10 @@ int main( int argc, char *argv[])
 	int ss, cs;
 	struct sockaddr_in sa;
 	struct sockaddr_in ssa;
-	int use_get_message = 1;
-	int nwatchdog = 8;
+#define USE_GET_MESSAGE 1
+	int use_get_message = USE_GET_MESSAGE;
+#define NWATCHDOG 8
+	int nwatchdog = NWATCHDOG;
 	int arg = 1;
 	int n;
 
@@ -745,11 +748,12 @@ int main( int argc, char *argv[])
 	}
 	if (!cport || !sport)
 	{
-		printf( "Usage: %s <server_addr:server_port> <client_port> [use_get_message]\n"
+		printf( "Usage: %s <server_addr:server_port> <client_port> [use_get_message [nwatchdog]]\n"
 				"\tserver_addr:server_port\t\twe will connect to this VNC server\n"
 				"\tclient_port\t\t\twe will listen for a VNC client to connect on this port\n"
-				"\tuse_get_message\t\t\tshould we use get_message to read socket (default=1)\n",
-				argv[0]);
+				"\tuse_get_message\t\t\tshould we use get_message to read socket (default=%d)\n"
+				"\tnwatchdog\t\t\tnumber of events mas to manage before watchdog (default=%d)\n",
+				argv[0], (int)USE_GET_MESSAGE, (int)NWATCHDOG);
 		exit( 1);
 	}
 	if (!saddr[0])
@@ -831,18 +835,19 @@ int main( int argc, char *argv[])
 					break;
 				}
 //				dprintf( 0, "client write %4d bytes to server : %02x %02x %02x.. [%s]\n", n, buf[0], buf[1], buf[2], buf);
-				dprintf( 0, "client write %4d bytes to server :", n);
+#define WRITE_VERBOSE 5
+				dprintf( WRITE_VERBOSE, "client write %4d bytes to server :", n);
 				m = n;
 #define MAX 2048
 				if (m > MAX)
 					m = MAX;
 				for (i = 0; i < m; i++)
 				{
-					_dprintf( 0, " %02x", buf[i]);
+					_dprintf( WRITE_VERBOSE, " %02x", buf[i]);
 				}
 				if (i < n)
-					_dprintf( 0, " ..");
-				_dprintf( 0, "\n");
+					_dprintf( WRITE_VERBOSE, " ..");
+				_dprintf( WRITE_VERBOSE, "\n");
 				m = write( ss, buf, n);
 				if (m != n)
 				{
@@ -867,17 +872,17 @@ int main( int argc, char *argv[])
 					break;
 				}
 //				dprintf( 0, "server write %4d bytes to client : %02x %02x %02x.. [%s]\n", n, buf[0], buf[1], buf[2], buf);
-				dprintf( 0, "server write %4d bytes to client :", n);
+				dprintf( WRITE_VERBOSE, "server write %4d bytes to client :", n);
 				m = n;
 				if (m > MAX)
 					m = MAX;
 				for (i = 0; i < m; i++)
 				{
-					_dprintf( 0, " %02x", buf[i]);
+					_dprintf( WRITE_VERBOSE, " %02x", buf[i]);
 				}
 				if (i < n)
-					_dprintf( 0, " ..");
-				_dprintf( 0, "\n");
+					_dprintf( WRITE_VERBOSE, " ..");
+				_dprintf( WRITE_VERBOSE, "\n");
 				m = write( cs, buf, n);
 				if (m != n)
 				{
@@ -885,14 +890,15 @@ int main( int argc, char *argv[])
 				}
 			}
 			
-			static int count = 0;
-			if (count++ >= nwatchdog)
+			if ((nwatchdog >= 0) && (watchdog >= nwatchdog))
 			{
-				printf( "watchdog\n");
-				getchar();
+				printf( "watchdog %d\n", watchdog);
+//				getchar();
 				break;
 			}
+			watchdog++;
 		}
+		printf( "closing sockets..\n");
 		close( ss);
 		close( cs);
 	}
